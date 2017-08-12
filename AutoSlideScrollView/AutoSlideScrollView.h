@@ -11,6 +11,8 @@
 @interface AutoSlideScrollView : UIView
 
 @property (nonatomic , readonly) UIScrollView *scrollView;
+@property (nonatomic , assign, readonly) NSInteger currentPageIndex;
+
 /**
  *  初始化
  *
@@ -21,10 +23,12 @@
  */
 - (id)initWithFrame:(CGRect)frame animationDuration:(NSTimeInterval)animationDuration;
 
+- (void)reloadData;
+
 /**
  数据源：获取总的page个数，如果少于2个，不自动滚动
  **/
-@property (nonatomic , copy) NSInteger (^totalPagesCount)(void);
+@property (nonatomic , copy) NSInteger (^totalPagesCount)();
 
 /**
  数据源：获取第pageIndex个位置的contentView
@@ -34,6 +38,11 @@
 /**
  当点击的时候，执行的block
  **/
-@property (nonatomic , copy) void (^TapActionBlock)(NSInteger pageIndex);
+@property (nonatomic , copy) void (^tapActionBlock)(NSInteger pageIndex);
+
+/**
+ 当currentPageIndex改变的时候，执行的block
+ **/
+@property (nonatomic , copy) void (^currentPageIndexChangeBlock)(NSInteger currentPageIndex);
 
 @end

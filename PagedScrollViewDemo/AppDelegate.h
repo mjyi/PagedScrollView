@@ -1,9 +1,9 @@
 //
 //  AppDelegate.h
-//  AutoSlideScrollViewDemo
+//  PagedScrollViewDemo
 //
-//  Created by Mike Chen on 14-1-23.
-//  Copyright (c) 2014年 __MyCompanyName__. All rights reserved.
+//  Created by mervin on 2017/8/12.
+//  Copyright © 2017年 浅浅浅. All rights reserved.
 //
 
 #import <UIKit/UIKit.h>
@@ -12,4 +12,6 @@
 
 @property (strong, nonatomic) UIWindow *window;
 
+
 @end
+

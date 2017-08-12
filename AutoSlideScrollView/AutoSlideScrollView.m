@@ -7,14 +7,13 @@
 //
 
 #import "AutoSlideScrollView.h"
-#import "NSTimer+Addition.h"
-#import "MyPageControl.h"
+#import "NSTimer+YJBlock.h"
 
 @interface AutoSlideScrollView () <UIScrollViewDelegate>
 {
     CGFloat scrollViewStartContentOffsetX;
 }
-@property (nonatomic , assign) NSInteger currentPageIndex;
+@property (nonatomic , assign, readwrite) NSInteger currentPageIndex;
 @property (nonatomic , assign) NSInteger totalPageCount;
 @property (nonatomic , strong) NSMutableArray *contentViews;
 @property (nonatomic , strong) UIScrollView *scrollView;
@@ -22,50 +21,14 @@
 @property (nonatomic , strong) NSTimer *animationTimer;
 @property (nonatomic , assign) NSTimeInterval animationDuration;
 
-@property (nonatomic , strong) MyPageControl *pageControl;
-
 @end
 
 @implementation AutoSlideScrollView
 
-- (MyPageControl *)pageControl
+- (void)setTotalPagesCount:(NSInteger (^)())totalPagesCount
 {
-    //少于或者等于一页的话，没有必要显示pageControl
-    if (self.totalPageCount > 1) {
-        if (!_pageControl) {
-            NSInteger totalPageCounts = self.totalPageCount;
-            CGFloat dotGapWidth = 8.0;
-            NSString *normalImageName = [@"AutoSlideScrollView.bundle" stringByAppendingPathComponent:@"page_state_normal.png"];
-            NSString *highlightImageName = [@"AutoSlideScrollView.bundle" stringByAppendingPathComponent:@"page_state_highlight.png"];
-            UIImage *normalDotImage = [UIImage imageNamed:normalImageName];
-            UIImage *highlightDotImage = [UIImage imageNamed:highlightImageName];
-            CGFloat pageControlWidth = totalPageCounts * normalDotImage.size.width + (totalPageCounts - 1) * dotGapWidth;
-            CGRect pageControlFrame = CGRectMake(CGRectGetMidX(self.scrollView.frame) - 0.5 * pageControlWidth , 0.9 * CGRectGetHeight(self.scrollView.frame), pageControlWidth, normalDotImage.size.height);
-            
-            _pageControl = [[MyPageControl alloc] initWithFrame:pageControlFrame
-                                                    normalImage:normalDotImage
-                                               highlightedImage:highlightDotImage
-                                                     dotsNumber:totalPageCounts sideLength:dotGapWidth dotsGap:dotGapWidth];
-            _pageControl.hidden = NO;
-        }
-    }
-    return _pageControl;
-}
-
-- (void)setTotalPagesCount:(NSInteger (^)(void))totalPagesCount
-{
-    self.totalPageCount = totalPagesCount();
-    if (self.totalPageCount > 0) {
-        if (self.totalPageCount > 1) {
-            self.scrollView.scrollEnabled = YES;
-            self.scrollView.contentOffset = CGPointMake(CGRectGetWidth(self.scrollView.frame), 0);
-            [self.animationTimer resumeTimerAfterTimeInterval:self.animationDuration];
-        } else {
-            self.scrollView.scrollEnabled = NO;
-        }
-        [self configContentViews];
-        [self addSubview:self.pageControl];
-    }
+    _totalPagesCount = totalPagesCount;
+    [self reloadData];
 }
 
 - (void)setFetchContentViewAtIndex:(UIView *(^)(NSInteger index))fetchContentViewAtIndex
@@ -78,21 +41,38 @@
 - (void)setCurrentPageIndex:(NSInteger)currentPageIndex
 {
     _currentPageIndex = currentPageIndex;
-    [self.pageControl setCurrentPage:_currentPageIndex];
+    if (self.currentPageIndexChangeBlock) {
+        self.currentPageIndexChangeBlock(_currentPageIndex);
+    }
 }
 
 - (id)initWithFrame:(CGRect)frame animationDuration:(NSTimeInterval)animationDuration
 {
     self = [self initWithFrame:frame];
     if (animationDuration > 0.0) {
-        self.animationTimer = [NSTimer scheduledTimerWithTimeInterval:(self.animationDuration = animationDuration)
-                                                               target:self
-                                                             selector:@selector(animationTimerDidFired:)
-                                                             userInfo:nil
-                                                              repeats:YES];
+        
+        __weak typeof(self) weakSelf = self;
+        self.animationTimer = [NSTimer yj_timerWithTimeInterval:(self.animationDuration = animationDuration) repeats:YES block:^(NSTimer * _Nonnull timer) {
+            [weakSelf animationTimerDidFired:timer];
+        }];
+        [[NSRunLoop currentRunLoop] addTimer:self.animationTimer forMode:NSRunLoopCommonModes];
         [self.animationTimer pauseTimer];
     }
     return self;
+}
+
+- (void)reloadData{
+    self.totalPageCount = _totalPagesCount();
+    if (self.totalPageCount > 0) {
+        if (self.totalPageCount > 1) {
+            self.scrollView.scrollEnabled = YES;
+            self.scrollView.contentOffset = CGPointMake(CGRectGetWidth(self.scrollView.frame), 0);
+            [self.animationTimer resumeTimerAfterTimeInterval:self.animationDuration];
+        } else {
+            self.scrollView.scrollEnabled = NO;
+        }
+        [self configContentViews];
+    }
 }
 
 - (id)initWithCoder:(NSCoder *)aDecoder
@@ -108,11 +88,11 @@
         [self addSubview:self.scrollView];
         self.scrollView.showsHorizontalScrollIndicator = NO;
         self.currentPageIndex = 0;
-        self.animationTimer = [NSTimer scheduledTimerWithTimeInterval:(self.animationDuration = 3)
-                                                               target:self
-                                                             selector:@selector(animationTimerDidFired:)
-                                                             userInfo:nil
-                                                              repeats:YES];
+        __weak typeof(self) weakSelf = self;
+        self.animationTimer = [NSTimer yj_timerWithTimeInterval:(self.animationDuration = 3) repeats:YES block:^(NSTimer * _Nonnull timer) {
+            [weakSelf animationTimerDidFired:timer];
+        }];
+        
         [self.animationTimer pauseTimer];
     }
     return self;
@@ -130,6 +110,7 @@
         self.scrollView.contentSize = CGSizeMake(3 * CGRectGetWidth(self.scrollView.frame), CGRectGetHeight(self.scrollView.frame));
         self.scrollView.delegate = self;
         self.scrollView.pagingEnabled = YES;
+        self.scrollView.showsHorizontalScrollIndicator = NO;
         [self addSubview:self.scrollView];
         self.currentPageIndex = 0;
     }
@@ -268,24 +249,18 @@
 
 - (void)animationTimerDidFired:(NSTimer *)timer
 {
-    CGPoint newOffset = CGPointMake(self.scrollView.contentOffset.x + CGRectGetWidth(self.scrollView.frame), self.scrollView.contentOffset.y);
+    CGFloat width = CGRectGetWidth(self.scrollView.frame);
+    CGFloat pX = self.scrollView.contentOffset.x;
+    pX = nearbyint(pX/width) * width;//按照当前page坐标调整
+    CGPoint newOffset = CGPointMake(pX + width, self.scrollView.contentOffset.y);
     [self.scrollView setContentOffset:newOffset animated:YES];
 }
 
 - (void)contentViewTapAction:(UITapGestureRecognizer *)tap
 {
-    if (self.TapActionBlock) {
-        self.TapActionBlock(self.currentPageIndex);
+    if (self.tapActionBlock) {
+        self.tapActionBlock(self.currentPageIndex);
     }
 }
-
-/*
- // Only override drawRect: if you perform custom drawing.
- // An empty implementation adversely affects performance during animation.
- - (void)drawRect:(CGRect)rect
- {
- // Drawing code
- }
- */
 
 @end
