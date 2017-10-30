@@ -70,7 +70,9 @@
             [self.animationTimer resumeTimerAfterTimeInterval:self.animationDuration];
         } else {
             self.scrollView.scrollEnabled = NO;
+            [self.animationTimer pauseTimer];
         }
+        self.currentPageIndex = 0;
         [self configContentViews];
     }
 }

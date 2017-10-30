@@ -56,7 +56,7 @@
         
         _slideView.fetchContentViewAtIndex = ^UIView *(NSInteger pageIndex){
             if (weakSelf.bannerList.count > pageIndex) {
-                UIImageView *imageView = (UIImageView *)[weakSelf reuseViewAtIndex:pageIndex];
+                UIImageView *imageView = [[UIImageView alloc] initWithFrame:weakSelf.bounds];
                 imageView.image = [UIImage imageNamed:weakSelf.bannerList[pageIndex]];
                 return imageView;
             }else{
@@ -90,8 +90,6 @@
         [self addSubview:_pageControl];
     }
     [self reloadData];
-    
-    
 }
 - (void)reloadData {
     if (_bannerList.count <= 0) {
@@ -106,30 +104,6 @@
     [_slideView reloadData];
 }
 
-
-- (UIView *)reuseViewAtIndex:(NSInteger)pageIndex {
-    if (!_imageViewList) {
-        _imageViewList = [[NSMutableArray alloc] initWithCapacity:3];
-        for (int i = 0; i < 3; i++) {
-            UIImageView *view = [[UIImageView alloc] initWithFrame:self.bounds];
-            view.backgroundColor = [UIColor whiteColor];
-            view.clipsToBounds = YES;
-            view.contentMode = UIViewContentModeScaleAspectFill;
-            [_imageViewList addObject:view];
-        }
-    }
-    UIImageView *imageView;
-    NSInteger currentPageIndex = self.slideView.currentPageIndex;
-    if (pageIndex == currentPageIndex) {
-        imageView = _imageViewList[1];
-    }else if (pageIndex == currentPageIndex + 1
-              || (labs(pageIndex - currentPageIndex) > 1 && pageIndex < currentPageIndex)){
-        imageView = _imageViewList[2];
-    }else{
-        imageView = _imageViewList[0];
-    }
-    return imageView;
-}
 
 @end
 
